@@ -1,0 +1,287 @@
+# ============================================================================
+# .gitignore for Locust Load Testing Project
+# ============================================================================
+
+# ============================================================================
+# SENSITIVE INFORMATION - NEVER COMMIT THESE!
+# ============================================================================
+
+# Environment variables (contains passwords, API keys, etc.)
+.env
+.env.local
+.env.*.local
+*.env
+
+# Secrets and credentials
+secrets/
+credentials/
+*.pem
+*.key
+*.cert
+
+# ============================================================================
+# PYTHON
+# ============================================================================
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# ============================================================================
+# LOCUST SPECIFIC
+# ============================================================================
+
+# Test results and reports
+results/
+*.html
+*_stats.csv
+*_stats_history.csv
+*_exceptions.csv
+*_failures.csv
+
+# Locust logs
+locust.log
+*.log
+logs/
+
+# ============================================================================
+# IDE / EDITOR
+# ============================================================================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# JetBrains IDEs
+.idea/
+*.iml
+out/
+
+# ============================================================================
+# OPERATING SYSTEM
+# ============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ============================================================================
+# TEMPORARY FILES
+# ============================================================================
+
+# General temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+tmp/
+temp/
+
+# Node modules (if you add any JS tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ============================================================================
+# DATA FILES
+# ============================================================================
+
+# Large data files
+*.csv
+*.xlsx
+*.xls
+*.json.gz
+*.zip
+*.tar.gz
+
+# Exception: Keep example/template files
+!example*.csv
+!template*.csv
+!sample*.csv
+
+# ============================================================================
+# DOCUMENTATION BUILD
+# ============================================================================
+
+# Sphinx documentation
+docs/_build/
+docs/_static/
+docs/_templates/
+
+# MkDocs
+site/
+
+# ============================================================================
+# DATADOG / MONITORING
+# ============================================================================
+
+# Datadog agent files
+.datadog/
+
+# ============================================================================
+# MISC
+# ============================================================================
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath
+*.sage.py
+
+# Spyder
+.spyderproject
+.spyproject
+
+# Rope
+.ropeproject
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre
+.pyre/
+
+# ============================================================================
+# PROJECT SPECIFIC
+# ============================================================================
+
+# Custom test data
+test_data/
+mock_data/
+
+# Screenshots from test runs
+screenshots/
+*.png
+*.jpg
+*.jpeg
+
+# Exception: Keep documentation images
+!docs/**/*.png
+!docs/**/*.jpg
+
+# Performance profiles
+*.prof
+*.lprof
+
+# Database files (if you create any for testing)
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache directories
+.cache/
+__cache__/
