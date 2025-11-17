@@ -1,0 +1,45 @@
+# Core Locust Framework
+# Locust is the main load testing framework
+locust==2.20.0
+
+# HTTP/REST API Testing
+# requests - Standard library for HTTP requests, used by Locust under the hood
+requests==2.31.0
+
+# GraphQL Testing Support
+# gql - GraphQL client library for Python (needed for your GraphQL testing)
+gql[all]==3.5.0
+
+# Redis Testing Support
+# redis - Python Redis client (for testing Redis Pub/Sub)
+redis==5.0.1
+
+# Data Processing & Analysis
+# pandas - Data manipulation library (useful for analyzing test results)
+pandas==2.1.4
+# numpy - Numerical computing (often used with pandas)
+numpy==1.26.2
+
+# Configuration Management
+# python-dotenv - Load environment variables from .env file
+python-dotenv==1.0.0
+
+# Datadog Integration
+# datadog - Official Datadog API client for sending custom metrics
+datadog==0.49.1
+
+# Reporting & Visualization
+# matplotlib - Create charts from test results
+matplotlib==3.8.2
+
+# Testing & Development
+# pytest - Testing framework (for unit testing your Locust code)
+pytest==7.4.3
+
+# Optional: JSON Schema Validation
+# jsonschema - Validate API responses against schemas
+jsonschema==4.20.0
+
+# Optional: Faker for generating test data
+# Faker - Generate realistic fake data for tests
+Faker==22.0.0

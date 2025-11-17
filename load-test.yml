@@ -1,0 +1,345 @@
+name: Locust Load Test
+
+# =============================================================================
+# WHEN THIS WORKFLOW RUNS
+# =============================================================================
+# This workflow demonstrates CI/CD integration for load testing
+# It can run on:
+# 1. Pull requests (to catch performance regressions before merge)
+# 2. Manual trigger (for ad-hoc testing)
+# 3. Scheduled runs (for regular performance monitoring)
+
+on:
+  # Run on pull requests to main branch
+  pull_request:
+    branches: [main]
+    # Only run if certain files change (avoid unnecessary tests)
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - '.github/workflows/load-test.yml'
+  
+  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      users:
+        description: 'Number of virtual users'
+        required: true
+        default: '50'
+      duration:
+        description: 'Test duration (e.g., 1m, 10m, 1h)'
+        required: true
+        default: '5m'
+      spawn_rate:
+        description: 'User spawn rate (users/second)'
+        required: true
+        default: '5'
+  
+  # Scheduled runs (every Monday at 9 AM UTC)
+  # schedule:
+  #   - cron: '0 9 * * 1'
+
+# =============================================================================
+# JOBS
+# =============================================================================
+
+jobs:
+  load-test:
+    name: Run Locust Load Test
+    runs-on: ubuntu-latest
+    
+    # Don't run on forks (they won't have secrets)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    
+    steps:
+      # =======================================================================
+      # SETUP STEPS
+      # =======================================================================
+      
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'  # Cache pip dependencies for faster runs
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      # =======================================================================
+      # CONFIGURATION
+      # =======================================================================
+      
+      - name: Configure test parameters
+        id: config
+        run: |
+          # Use manual inputs if provided, otherwise use defaults
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "users=${{ github.event.inputs.users }}" >> $GITHUB_OUTPUT
+            echo "duration=${{ github.event.inputs.duration }}" >> $GITHUB_OUTPUT
+            echo "spawn_rate=${{ github.event.inputs.spawn_rate }}" >> $GITHUB_OUTPUT
+          else
+            # Default values for PR and scheduled runs
+            echo "users=20" >> $GITHUB_OUTPUT
+            echo "duration=2m" >> $GITHUB_OUTPUT
+            echo "spawn_rate=2" >> $GITHUB_OUTPUT
+          fi
+      
+      # =======================================================================
+      # RUN LOAD TEST
+      # =======================================================================
+      
+      - name: Run load test
+        id: load_test
+        env:
+          # Get secrets from GitHub repository secrets
+          TARGET_HOST: ${{ secrets.STAGING_URL }}
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DATADOG_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
+          DATADOG_ENVIRONMENT: staging
+          DATADOG_SERVICE: locust-ci-test
+        run: |
+          # Run Locust in headless mode
+          locust -f tests/basic_test.py \
+            --host=$TARGET_HOST \
+            --users=${{ steps.config.outputs.users }} \
+            --spawn-rate=${{ steps.config.outputs.spawn_rate }} \
+            --run-time=${{ steps.config.outputs.duration }} \
+            --headless \
+            --html=results/report.html \
+            --csv=results/stats \
+            --exit-code-on-error=0
+          
+          # Capture exit code
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+      
+      # =======================================================================
+      # ANALYZE RESULTS
+      # =======================================================================
+      
+      - name: Analyze test results
+        id: analyze
+        run: |
+          # Parse CSV results to check performance thresholds
+          python << 'EOF'
+          import csv
+          import sys
+          
+          # Read stats
+          with open('results/stats_stats.csv', 'r') as f:
+              reader = csv.DictReader(f)
+              rows = list(reader)
+          
+          # Check thresholds
+          passed = True
+          issues = []
+          
+          for row in rows:
+              if row['Name'] == 'Aggregated':
+                  continue
+              
+              # Check average response time
+              avg_response_time = float(row['Average Response Time'])
+              if avg_response_time > 2000:  # 2 second threshold
+                  passed = False
+                  issues.append(f"❌ {row['Name']}: Avg response time {avg_response_time:.0f}ms exceeds 2000ms")
+              
+              # Check error rate
+              if int(row['Request Count']) > 0:
+                  error_rate = (int(row['Failure Count']) / int(row['Request Count'])) * 100
+                  if error_rate > 5:  # 5% error threshold
+                      passed = False
+                      issues.append(f"❌ {row['Name']}: Error rate {error_rate:.1f}% exceeds 5%")
+          
+          # Write results
+          with open('results/analysis.txt', 'w') as f:
+              if passed:
+                  f.write("✅ All performance thresholds passed!\n")
+              else:
+                  f.write("Performance issues detected:\n")
+                  for issue in issues:
+                      f.write(f"{issue}\n")
+          
+          # Exit with error if thresholds failed
+          sys.exit(0 if passed else 1)
+          EOF
+          
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+      
+      # =======================================================================
+      # SAVE ARTIFACTS
+      # =======================================================================
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()  # Upload even if test fails
+        with:
+          name: load-test-results
+          path: |
+            results/report.html
+            results/stats*.csv
+            results/analysis.txt
+          retention-days: 30
+      
+      # =======================================================================
+      # NOTIFICATIONS
+      # =======================================================================
+      
+      - name: Post results to Slack
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          # Read analysis results
+          ANALYSIS=$(cat results/analysis.txt)
+          
+          # Determine status
+          if [ "${{ steps.analyze.outputs.exit_code }}" == "0" ]; then
+            STATUS="✅ Passed"
+            COLOR="good"
+          else
+            STATUS="❌ Failed"
+            COLOR="danger"
+          fi
+          
+          # Send Slack notification
+          curl -X POST $SLACK_WEBHOOK_URL \
+            -H 'Content-Type: application/json' \
+            -d @- << EOF
+          {
+            "attachments": [{
+              "color": "$COLOR",
+              "title": "Load Test Results: $STATUS",
+              "text": "$ANALYSIS",
+              "fields": [
+                {
+                  "title": "Branch",
+                  "value": "${{ github.ref_name }}",
+                  "short": true
+                },
+                {
+                  "title": "Users",
+                  "value": "${{ steps.config.outputs.users }}",
+                  "short": true
+                },
+                {
+                  "title": "Duration",
+                  "value": "${{ steps.config.outputs.duration }}",
+                  "short": true
+                },
+                {
+                  "title": "Report",
+                  "value": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Results>",
+                  "short": true
+                }
+              ],
+              "footer": "Locust Load Test",
+              "ts": $(date +%s)
+            }]
+          }
+          EOF
+      
+      # =======================================================================
+      # COMMENT ON PR (if this is a PR)
+      # =======================================================================
+      
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const analysis = fs.readFileSync('results/analysis.txt', 'utf8');
+            
+            const status = '${{ steps.analyze.outputs.exit_code }}' === '0' 
+              ? '✅ Performance check passed' 
+              : '❌ Performance check failed';
+            
+            const comment = `
+            ## Load Test Results: ${status}
+            
+            **Test Configuration:**
+            - Virtual Users: ${{ steps.config.outputs.users }}
+            - Duration: ${{ steps.config.outputs.duration }}
+            - Spawn Rate: ${{ steps.config.outputs.spawn_rate }}
+            
+            **Results:**
+            \`\`\`
+            ${analysis}
+            \`\`\`
+            
+            📊 [View detailed report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+      
+      # =======================================================================
+      # FAIL JOB IF THRESHOLDS NOT MET
+      # =======================================================================
+      
+      - name: Check if performance degraded
+        if: steps.analyze.outputs.exit_code != '0'
+        run: |
+          echo "::error::Performance thresholds exceeded. Review the test results."
+          exit 1
+
+# =============================================================================
+# SETUP INSTRUCTIONS
+# =============================================================================
+# 
+# To enable this workflow, you need to:
+# 
+# 1. Add GitHub Secrets (Settings > Secrets > Actions):
+#    - STAGING_URL: Your staging environment URL
+#    - DATADOG_API_KEY: Datadog API key
+#    - DATADOG_APP_KEY: Datadog application key
+#    - SLACK_WEBHOOK_URL: Slack webhook for notifications
+# 
+# 2. Adjust thresholds in the "Analyze test results" step:
+#    - Current: 2000ms avg response time, 5% error rate
+#    - Modify based on your requirements
+# 
+# 3. Customize when tests run:
+#    - Enable/disable scheduled runs
+#    - Add more trigger conditions
+#    - Adjust PR path filters
+# 
+# 4. Integration with deployment gates:
+#    - This workflow will fail if thresholds are exceeded
+#    - Configure branch protection to require this check
+#    - This prevents deploying code that degrades performance
+# 
+# =============================================================================
+# BENEFITS OF THIS APPROACH
+# =============================================================================
+# 
+# 1. CATCH REGRESSIONS EARLY
+#    - Detect performance issues before they reach production
+#    - Get feedback directly in pull requests
+# 
+# 2. AUTOMATED MONITORING
+#    - Regular scheduled tests track performance trends
+#    - No manual intervention needed
+# 
+# 3. DEPLOYMENT GATES
+#    - Prevent deployments that degrade performance
+#    - Configurable thresholds for your needs
+# 
+# 4. VISIBILITY
+#    - Results posted to Slack for team awareness
+#    - PR comments for immediate feedback
+#    - Datadog integration for detailed analysis
+# 
+# 5. FLEXIBILITY
+#    - Manual runs with custom parameters
+#    - Different test sizes for different scenarios
+#    - Easy to extend with more test types
