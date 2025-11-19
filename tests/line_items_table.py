@@ -1,4 +1,3 @@
-import json
 from locust import HttpUser, task, between
 from helpers.auth import Auth
 from helpers.make_request import make_request
