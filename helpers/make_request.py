@@ -1,6 +1,14 @@
 import json
 
-def make_request(self, query: str, operation_name: str):
+def make_request(self, query: str, operation_name: str, variables: dict = None):
+    payload = {
+        "query": query,
+        "operationName": operation_name,
+    }
+    
+    if variables:
+        payload["variables"] = variables
+    
     with self.client.post(
         "/graphql",
         name=operation_name,
@@ -8,10 +16,7 @@ def make_request(self, query: str, operation_name: str):
             "accept": "*/*",
             "cookie": f"access_token={self.access_token}",
         },
-        json={
-            "query": query,
-            "operationName": operation_name,
-        },
+        json=payload,
         catch_response=True
     ) as response:
         if response.status_code != 200:

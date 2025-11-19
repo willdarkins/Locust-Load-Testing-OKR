@@ -1,5 +1,8 @@
 from fusionauth.fusionauth_client import FusionAuthClient
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class Auth:
     api_key = os.environ.get("FUSION_AUTH_API_KEY")
