@@ -21,3 +21,6 @@ jsonschema==4.20.0
 
 # Fake data generation
 Faker==22.0.0
+
+# FusionAuth Authentication
+fusionauth-client==1.49.2
