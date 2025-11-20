@@ -36,6 +36,11 @@ jobs:
         pip install -r requirements.txt
     
     - name: Run Locust Load Test
+      env:
+        FUSION_AUTH_API_KEY: ${{ secrets.FUSION_AUTH_API_KEY }}
+        FUSION_AUTH_BASE_URI: ${{ secrets.FUSION_AUTH_BASE_URI }}
+        LOCUST_USERNAME: ${{ secrets.LOCUST_USERNAME }}
+        LOCUST_USER_PASSWORD: ${{ secrets.LOCUST_USER_PASSWORD }}
       run: |
         locust \
           --headless \
