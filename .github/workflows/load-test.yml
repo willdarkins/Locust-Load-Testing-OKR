@@ -43,7 +43,6 @@ jobs:
           --spawn-rate 10 \
           --run-time ${{ github.event.inputs.duration || '2m' }} \
           --host ${{ github.event.inputs.target_url || secrets.STG_URL }} \
-          -f tests/auth_test.py -f tests/line_items_messaging.py -f tests/line_items_table.py \
           --html report.html \
           --csv results
     
