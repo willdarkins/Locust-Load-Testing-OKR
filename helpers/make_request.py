@@ -21,7 +21,7 @@ def make_request(self, query: str, operation_name: str, variables: dict = None):
         payload["variables"] = variables
     
     with self.client.post(
-        "/graphql",
+        "/api/graphql",
         name=operation_name,
         headers={
             "accept": "*/*",
