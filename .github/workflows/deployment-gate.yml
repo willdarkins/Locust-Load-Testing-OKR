@@ -1,0 +1,79 @@
+name: Deployment Gate - Performance Check
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  performance-gate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+    
+    - name: Run baseline load test
+      run: |
+        locust \
+          --headless \
+          --users 50 \
+          --spawn-rate 10 \
+          --run-time 2m \
+          --host ${{ secrets.STG_URL }} \
+          --csv baseline
+    
+    - name: Check if deployment should proceed
+      id: gate_check
+      run: |
+        python scripts/check_thresholds.py baseline_stats.csv
+        echo "gate_passed=true" >> $GITHUB_OUTPUT
+      continue-on-error: true
+    
+    - name: Comment on PR with results - Success
+      if: steps.gate_check.outcome == 'success'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const stats = fs.readFileSync('baseline_stats.csv', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## 🔍 Load Test Results\n\n✅ Performance tests passed\n\nSee artifacts for detailed results.`
+          })
+
+    - name: Comment on PR with results - Failure
+      if: steps.gate_check.outcome != 'success'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const stats = fs.readFileSync('baseline_stats.csv', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## 🔍 Load Test Results\n\n❌ Performance degradation detected\n\nSee artifacts for detailed results.`
+          })
+    
+    - name: Block deployment if thresholds breached
+      if: steps.gate_check.outcome != 'success'
+      run: |
+        echo "⛔ Deployment blocked due to performance degradation"
+        exit 1

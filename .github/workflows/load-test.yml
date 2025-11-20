@@ -1,0 +1,61 @@
+name: Locust Load Test
+
+on:
+  pull_request:
+    branches: [ main, staging ]
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Target URL to test'
+        required: false  # Changed to false since we have a default
+        default: ''  # Leave empty to use the secret
+      users:
+        description: 'Number of concurrent users'
+        required: true
+        default: '50'
+      duration:
+        description: 'Test duration (e.g., 2m, 5m)'
+        required: true
+        default: '2m'
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+    
+    - name: Run Locust Load Test
+      run: |
+        locust \
+          --headless \
+          --users ${{ github.event.inputs.users || '50' }} \
+          --spawn-rate 10 \
+          --run-time ${{ github.event.inputs.duration || '2m' }} \
+          --host ${{ github.event.inputs.target_url || secrets.STG_URL }} \
+          --html report.html \
+          --csv results
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: locust-results
+        path: |
+          report.html
+          results_stats.csv
+          results_failures.csv
+    
+    - name: Check performance thresholds
+      run: |
+        python scripts/check_thresholds.py results_stats.csv
