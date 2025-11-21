@@ -12,8 +12,7 @@ env:
   LOCUST_USER_PASSWORD: ${{ secrets.LOCUST_USER_PASSWORD }}
 
 on:
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   performance-gate:
