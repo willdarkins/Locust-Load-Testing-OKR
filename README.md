@@ -1,4 +1,4 @@
-# Locust Load Testing with GitHub Actions
+# Locust Load Testing
 
 Automated load testing solution for Adcellerant's platform using Locust, integrated with GitHub Actions for CI/CD performance gates.
 
