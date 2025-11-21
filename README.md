@@ -1,188 +1,142 @@
-# Locust Load Testing POC
+# Locust Load Testing with GitHub Actions
 
-This repository contains a Proof of Concept (POC) for load testing our React application using Locust Cloud.
+Automated load testing solution for Adcellerant's platform using Locust, integrated with GitHub Actions for CI/CD performance gates.
 
 ## 📋 Project Overview
 
-**Purpose**: Evaluate Locust Cloud for load testing our React application with ~2 load tests per month.
+This repository implements an automated load testing framework. The solution provides performance validation, deployment gates, and infrastructure stress testing for our React application and GraphQL API.
 
-**Meeting Notes**: See internal documentation for detailed requirements and Q&A from the Locust sales meeting (Nov 17, 2025).
+### Key Objectives
 
-## 🎯 POC Goals
+- ✅ Validate system performance before production deployments
+- ✅ Prevent performance regressions through automated PR checks
+- ✅ Establish baseline performance metrics for capacity planning
 
-1. **Validate Free Tier Viability**: Test if 200 VU hours/month meets our needs
-2. **Integration Testing**: Verify Datadog, GitHub Actions, and Slack integrations
-3. **Team Learning**: Build Python/Locust expertise with minimal current experience
-4. **Technical Validation**: Confirm support for GraphQL and Redis Pub/Sub testing
+### Business Context
 
-## 📊 Key Metrics from Sales Meeting
+**Peak Traffic Analysis:** 1,286 unique users during 8-11am Wednesday windows with 54.5% active engagement  
+**Testing Requirement:** Support 100+ concurrent virtual users with <1% failure rate
 
-- **Current Usage**: ~2 load tests per month
-- **Peak Load**: ~100 concurrent virtual users (VUs)
-- **Free Plan**: 200 VU hours/month, max 100 concurrent VUs
-- **Calculation**: 2-hour test × 50 VUs = 100 VU hours per test
-- **Data Retention**: 180 days (same for free and paid)
+---
 
-## 🏗️ Project Structure
+## 🏗️ Architecture
 
 ```
-locust-poc/
-├── tests/              # Locust test files (locustfiles)
-├── scenarios/          # Reusable test scenarios
-├── utils/              # Helper functions and utilities
-├── config/             # Configuration files
-├── results/            # Test results and reports (gitignored)
-├── .github/workflows/  # GitHub Actions for CI/CD integration
-├── requirements.txt    # Python dependencies
-├── .env.example        # Environment variables template
-└── README.md          # This file
+┌─────────────────────────────────────────────────────────────┐
+│                     GitHub Actions                          │
+│  ┌────────────────────┐      ┌──────────────────────────┐  │
+│  │  load-test.yml     │      │ deployment-gate.yml      │  │
+│  │  (Manual Trigger)  │      │ (Disabled for PRs)       │  │
+│  └────────────────────┘      └──────────────────────────┘  │
+│            │                            │                   │
+│            └────────────┬───────────────┘                   │
+│                         ▼                                   │
+│              ┌────────────────────┐                         │
+│              │  Locust Test Run   │                         │
+│              │  - Execute tests   │                         │
+│              │  - Check thresholds│                         │
+│              │  - Generate reports│                         │
+│              └────────────────────┘                         │
+│                         │                                   │
+│          ┌──────────────┼──────────────┐                   │
+│          ▼              ▼               ▼                   │
+│    ┌─────────┐   ┌──────────┐   ┌───────────┐             │
+│    │ HTML    │   │   CSV    │   │ Threshold │             │
+│    │ Report  │   │  Data    │   │  Check    │             │
+│    └─────────┘   └──────────┘   └───────────┘             │
+└─────────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+              ┌────────────────────┐
+              │  Staging Environment│
+              │  stg.ui.marketing   │
+              │  - GraphQL API      │
+              │  - React App        │
+              │  - Microservices    │
+              └────────────────────┘
 ```
 
-## 🚀 Getting Started
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Python 3.8 or higher
-- pip (Python package manager)
-- Git
-- Access to staging environment
+- Python 3.11+
+- Access to staging environment (`stg.ui.marketing`)
+- GitHub repository with Actions enabled
+- FusionAuth credentials for authentication
 
-### Installation
+### Local Development Setup
 
-1. **Clone the repository**:
+1. **Clone the repository**
    ```bash
-   git clone <repo-url>
-   cd locust-poc
+   git clone https://github.com/willdarkins/Locust-Load-Testing-OKR.git
+   cd Locust-Load-Testing-OKR
    ```
 
-2. **Create a virtual environment** (recommended):
+2. **Create virtual environment**
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. **Install dependencies**:
+3. **Install dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Configure environment**:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your actual values
+4. **Configure environment variables**
+   Create a `.env` file in the project root:
+   ```env
+   FUSION_AUTH_API_KEY=get from onepassword
+   FUSION_AUTH_BASE_URI=get from fusionauth
+   LOCUST_USERNAME=get from onepassword
+   LOCUST_USER_PASSWORD=get from onepassword
    ```
 
-### Running Tests Locally
+5. **Run tests locally**
+   ```bash
+   # With web UI
+   locust -f tests/line_items_table.py --host https://stg.ui.marketing
 
-```bash
-# Run with Locust web UI (recommended for development)
-locust -f tests/basic_test.py --host=https://your-staging-url.com
+   # Headless mode
+   locust -f tests/line_items_table.py \
+     --headless \
+     --users 50 \
+     --spawn-rate 10 \
+     --run-time 2m \
+     --host https://stg.ui.marketing \
+     --html report.html
+   ```
 
-# Run headless (for CI/CD)
-locust -f tests/basic_test.py --host=https://your-staging-url.com \
-  --users 10 --spawn-rate 2 --run-time 1m --headless
-```
+---
 
-## 📚 Understanding Locust Concepts
+## 🎮 Usage
 
-### Virtual Users (VUs)
-- **What**: Simulated users that execute your test scenarios
-- **Example**: 50 VUs means 50 concurrent simulated users hitting your app
+### Manual Load Test
 
-### Virtual User Hours (VU Hours)
-- **Calculation**: Number of VUs × Test duration in hours
-- **Example**: 100 VUs running for 2 hours = 200 VU hours
-- **Why it matters**: This is how Locust Cloud bills usage
+Trigger from GitHub Actions UI:
 
-### Spawn Rate
-- **What**: How quickly VUs are added to reach target user count
-- **Example**: Spawn rate of 5/sec means adding 5 new users every second
-- **Best Practice**: Gradual ramp-up prevents overwhelming the system
+1. Go to **Actions** tab
+2. Select **"Locust Load Test"** workflow
+3. Click **"Run workflow"**
+4. Configure parameters:
+   - **Target URL:** Override default staging URL (optional)
+   - **Users:** Number of concurrent virtual users (default: 50)
+   - **Duration:** Test duration, e.g., `2m`, `5m` (default: 2m)
+5. Click **"Run workflow"**
 
-### Test Scenarios
-- **User Tasks**: Individual actions a user performs (login, browse, checkout)
-- **Task Weighting**: Frequency of different actions (e.g., browsing is 3x more common than checkout)
-- **Wait Times**: Realistic pauses between actions (simulating user think time)
 
-## 🔧 Integration Points
+### Viewing Results
 
-### Datadog Integration
-- **Purpose**: Correlate load test metrics with application performance
-- **Benefit**: See which database queries slow down, API error rates, memory spikes
-- **Status**: Pending setup and testing
+**From GitHub Actions:**
+1. Navigate to the completed workflow run
+2. Scroll to the bottom → **Artifacts** section
+3. Download **"locust-results"** ZIP file
+4. Extract and open `report.html` in your browser
 
-### GitHub Actions Integration
-- **Purpose**: Automated load testing in CI/CD pipeline
-- **Use Case**: Gate deployments if performance degrades >20%
-- **Status**: Workflow template created
-
-### Slack Integration
-- **Purpose**: Real-time notifications of test results and issues
-- **Status**: Pending testing
-
-### Jira Integration
-- **Purpose**: Automated ticket creation for performance threshold breaches
-- **Status**: To be implemented
-
-## 📈 Free Plan Capacity Analysis
-
-### Scenario: 2 Tests per Month
-
-**Test Profile**:
-- Duration: 2 hours per test
-- Concurrent VUs: 50
-- VU Hours per test: 50 × 2 = 100 VU hours
-
-**Monthly Usage**:
-- 2 tests × 100 VU hours = 200 VU hours ✅ (exactly at free tier limit)
-
-**Recommendation**: Start with free tier but monitor closely. Any additional tests or longer duration will require Premium plan ($399/month for 5,000 VU hours).
-
-## 🎓 Learning Resources
-
-### For Team Members New to Python
-- [Python Official Tutorial](https://docs.python.org/3/tutorial/)
-- [Learn Python in Y Minutes](https://learnxinyminutes.com/docs/python/)
-
-### Locust Documentation
-- [Locust Official Docs](https://docs.locust.io/)
-- [Writing a Locustfile](https://docs.locust.io/en/stable/writing-a-locustfile.html)
-
-### Load Testing Best Practices
-- Start small: Begin with 10-20 VUs to verify test accuracy
-- Ramp up gradually: Use realistic spawn rates
-- Monitor system resources: Watch CPU, memory, database during tests
-- Test in staging: Never run load tests against production without approval
-
-## 🔍 Next Steps for POC
-
-- [ ] Set up Locust Cloud account (free tier)
-- [ ] Create basic test scenario for our React app
-- [ ] Test GraphQL and Redis Pub/Sub protocols
-- [ ] Configure Datadog integration
-- [ ] Set up GitHub Actions workflow
-- [ ] Test Slack notifications
-- [ ] Run initial 2-hour test with 50 VUs
-- [ ] Document findings and recommendations
-- [ ] Present results to stakeholders
-
-## 📝 Notes from Sales Meeting
-
-- **Start Strategy**: Begin with free version, assess capacity needs
-- **Testing Location**: US-only, using AWS cloud
-- **Seat Licensing**: Unlimited users can access the SaaS platform
-- **Support**: Premium includes professional support via email
-- **Preference Note**: Team prefers Google Cloud, but Locust uses AWS
-
-## 🤝 Contributing
-
-Since this is a POC, please document your learnings and questions as you work through the setup. This will help the entire team understand Locust better.
-
-## 📞 Contact
-
-- **Locust Sales Rep**: [Contact from meeting]
-- **Internal Champion**: Bailey (for STG environment setup)
-
-## 📄 License
-
-Internal use only - [Your Company Name]
+**Local Results:**
+- HTML Report: `report.html` (open in browser)
+- CSV Statistics: `results_stats.csv`
+- Failure Log: `results_failures.csv`
